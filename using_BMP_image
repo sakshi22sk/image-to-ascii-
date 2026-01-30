@@ -1,0 +1,72 @@
+IMAGE_PATH = "/content/sample.bmp"   # 24-bit BMP only
+OUTPUT_WIDTH = 100
+
+def brightness_to_symbol(light):
+    """Convert grayscale value (0-255) into ASCII symbol."""
+    if light >= 240: return " "
+    elif light >= 210: return "."
+    elif light >= 190: return ","
+    elif light >= 170: return ":"
+    elif light >= 150: return "-"
+    elif light >= 130: return "="
+    elif light >= 110: return "+"
+    elif light >= 90:  return "*"
+    elif light >= 70:  return "#"
+    elif light >= 50:  return "%"
+    else:              return "@"
+
+def generate_ascii():
+    # --- OPEN IMAGE FILE IN BINARY MODE ---
+    with open(IMAGE_PATH, "rb") as img:
+
+        # Read dimensions from BMP header
+        img.seek(18)
+        original_width = int.from_bytes(img.read(4), "little")
+        original_height = int.from_bytes(img.read(4), "little")
+
+        # Locate where pixel array starts
+        img.seek(10)
+        pixel_start = int.from_bytes(img.read(4), "little")
+        img.seek(pixel_start)
+
+        # BMP row padding rule
+        extra_bytes = (4 - (original_width * 3) % 4) % 4
+
+        gray_pixels = []
+
+        # --- READ PIXELS ---
+        for _ in range(original_height):
+            current_row = []
+            for _ in range(original_width):
+                blue = int.from_bytes(img.read(1), "little")
+                green = int.from_bytes(img.read(1), "little")
+                red = int.from_bytes(img.read(1), "little")
+
+                # Convert RGB → grayscale
+                intensity = int((red*0.3) + (green*0.59) + (blue*0.11))
+                current_row.append(intensity)
+
+            img.read(extra_bytes)   # skip padding
+            gray_pixels.append(current_row)
+
+    # BMP images are stored bottom-up
+    gray_pixels.reverse()
+
+    # --- RESIZE OUTPUT ---
+    output_height = int(OUTPUT_WIDTH * (original_height / original_width) * 0.55)
+
+    # --- DRAW ASCII ---
+    for row in range(output_height):
+        ascii_line = ""
+        for col in range(OUTPUT_WIDTH):
+
+            mapped_x = int(col * (original_width / OUTPUT_WIDTH))
+            mapped_y = int(row * (original_height / output_height))
+
+            value = gray_pixels[mapped_y][mapped_x]
+            ascii_line += brightness_to_symbol(value)
+
+        print(ascii_line)
+
+# --- RUN ---
+generate_ascii()
